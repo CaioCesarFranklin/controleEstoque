@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="pt">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Electron App with SQLite</title>
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';">
+    <link rel="stylesheet" href="index.css">
+</head>
+
+<body>
+    <div>
+        <div class="areaTotalAPI">
+            <div class="area-estoques">
+
+
+
+
+                <h1>Controle de Estoque</h1>
+                <form id="add-item-form" class="formulario">
+                    <input class="input-formularion" type="text" id="item-name" placeholder="Nome do Item" required>
+                    <input class="input-formularion" type="number" id="item-quantity" placeholder="Quantidade" required>
+                    <input class="input-formularion" type="number" id="item-code" placeholder="Código de Barras" required>
+                    <input class="input-formularion" type="date" id="item-validate" placeholder="Validade">
+                    <input class="input-formularion" type="text" id="item-value" placeholder="Valor (R$00,00)">
+                    <button class="btn-adicionar" type="submit">Adicionar Item</button>
+                </form>
+
+
+
+
+
+                <div class="produtos-lista">
+                    <div class="titulo-lista">
+                        <span>Produto</span>
+                        <span>Código</span>
+                        <span>Preço (R$)</span>
+                        <span>Quantidade</span>
+                        <span>Validade</span>
+                    </div>
+                    <ul id="inventory-list"></ul>
+                </div>
+            </div>
+            <div class="areaCriarProduto">
+                <h2>Criar Produto</h2>
+                <form id="add-item-formProduto" class="formulario">
+                    <input class="input-formularion" type="text" name="nomeProduto" id="nome-produto" placeholder="Nome"
+                        required>
+                    <input class="input-formularion" type="text" name="valorProduto" id="valor-produto" required
+                        placeholder="Valor (R$00,00)">
+                    <input class="input-formularion" type="text" name="codeProduto" id="code-produto"
+                        placeholder="Código" required>
+                    <button class="btn-adicionarProduto" type="submit">Adicionar Item</button>
+                </form>
+
+
+
+                <div class="produtos-lista">
+                    <div class="titulo-listaPCriado">
+                        <span>Produto</span>
+                        <span>Código</span>
+                        <span>Valor</span>
+                    </div>
+                    <ul id="inventory-listPCriado"></ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="area-vendas">
+            <div id="current-date"></div>
+            <div class="area-item-vendas">
+                <div class="esquerda-area-item-vendas">
+
+
+
+
+
+                    <div class="area-buscar-vendas">
+                        <label for="search-input">Busca:</label>
+                        <input type="text" id="search-input" placeholder="Digite o termo de busca">
+                        <form id="optionsForm">
+
+                            <select id="options" class="select-input" name="options">
+
+                                <option value="">Selecione uma opção</option>
+                                <option value="item_name">Produto</option>
+                                <option value="item_value">Preço</option>
+                                <option value="code">Código</option>
+                            </select>
+
+                        </form>
+                        <button id="search-button">Buscar</button>
+                    </div>
+                    <div class="area-titulo-search-results">
+                        <p>Produto</p>
+                        <p>código</p>
+                        <p>preço</p>
+                        <p>Quantidade</p>
+                        <p>Validade</p>
+                    </div>
+                    <div id="search-results" class="result-container">
+
+                    </div>
+                </div>
+
+
+                <div class="direita-area-item-vendas">
+                    <h1>Produtos vendidos</h1>
+                    <div class="area-titulo-produtos-vendidos">
+                        <p>Produto</p>
+                        <p>Código</p>
+                        <p>Quantidade</p>
+                        <p>Valor da Venda</p>
+
+                    </div>
+                    <div id='area-produtos-vendidos' class="area-produtos-vendidos">
+
+
+                    </div>
+
+                    <div id="total-vendido" class="total-vendido">
+                        <p class="texto-totalVendido">
+
+                            Total Vendido: R$
+                        </p>
+                        <span id="total-vendido-value"> 0.00</span>
+                    </div>
+
+                </div>
+
+
+
+
+
+                <button onclick="showModal3()">Ver histórico de venda</button>
+
+            </div>
+        </div>
+
+        <div id="modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <div id="modal-item-details"></div>
+                <div id="modal-quantity-controls"></div>
+                <div id="modal-buttons">
+                    <button id="confirm-button">Confirmar</button>
+                    <button id="cancel-button">Cancelar</button>
+                </div>
+            </div>
+        </div>
+
+
+        <div id="modal3" class="modal">
+            <div class="modal-content2">
+                <span class="close3">&times;</span>
+                <label for="date-input">Data:</label>
+                <input type="date" id="date-input">
+                <button id="fetch-by-all-date">Buscar Todas as Vendas</button>
+
+
+
+                <div id="results">
+
+                    <ul id="sales-list"></ul>
+                </div>
+            </div>
+
+
+
+
+        </div>
+
+
+
+    </div>
+
+
+    <script>
+        const produtosVendidos = [
+
+        ];
+
+        let totalVendido = 0;
+
+        function formatDate(date) {
+            const dia = date.getDate().toString().padStart(2, '0');
+            const mes = (date.getMonth() + 1).toString().padStart(2, '0');
+            const ano = date.getFullYear();
+            return `${dia}/${mes}/${ano}`;
+        }
+
+        function obterDataBrasil() {
+            // Obtém a data atual no fuso horário local
+            const hoje = new Date();
+
+            // Ajusta a data para o horário do Brasil (UTC-3)
+            const offsetHoras = -3;
+            const horaUTC = hoje.getUTCHours();
+            hoje.setHours(horaUTC + offsetHoras);
+
+            // Formata a data para o formato DD/MM/YYYY
+            return formatDate(hoje);
+        }
+
+        // Obtém a data atual
+    
+        
+        // Formata a data
+        const dateHoje = obterDataBrasil();
+       // alert(dateHoje)
+        document.getElementById('add-item-form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const itemName = document.getElementById('item-name').value;
+            const itemQuantity = document.getElementById('item-quantity').value;
+            const itemCode = document.getElementById('item-code').value;
+            const itemDate = document.getElementById('item-validate').value;
+            const itemValue = document.getElementById('item-value').value;
+
+            if (!itemName || !itemQuantity || !itemCode || !itemDate || !itemValue) {
+                alert('Por favor, preencha todos os campos obrigatórios.');
+                return;
+            }
+
+                await window.api.addItem(itemName, parseInt(itemQuantity), itemCode, itemDate, itemValue);
+               // alert(itemDate)
+
+         
+                document.getElementById('add-item-form').reset(); // Limpa o formulário após adicionar o item
+            
+            
+            loadInventory();
+        });
+
+
+        document.getElementById('search-button').addEventListener('click', async () => {
+            const searchTerm = document.getElementById('search-input').value;
+            const selectedOption = document.getElementById('options').value;
+            if (!selectedOption || selectedOption === '') {
+                alert('Por favor, insira o que deseja buscar.');
+                return;
+            }
+
+            if (!searchTerm) {
+                alert('Por favor, insira um termo de busca.');
+                return;
+            }
+
+            const results = await window.api.searchItems(searchTerm, selectedOption);
+            const resultsContainer = document.getElementById('search-results');
+            resultsContainer.innerHTML = ''; // Limpar resultados anteriores
+
+            if (results.length === 0) {
+                resultsContainer.innerHTML = '<p>Nenhum resultado encontrado.</p>';
+            } else {
+                results.forEach(item => {
+                    const div = document.createElement('div');
+                    div.classList.add('result');
+
+                    const namePara = document.createElement('p');
+                    namePara.textContent = `${item.item_name}`;
+
+                    const codePara = document.createElement('p');
+                    codePara.textContent = ` ${item.code}`;
+
+                    const valuePara = document.createElement('p');
+                    valuePara.textContent = ` ${item.item_value}`;
+
+                    const quantityPara = document.createElement('p');
+                    quantityPara.textContent = `${item.quantity || '-'}`;
+
+                    const datePara = document.createElement('p');
+                    datePara.textContent = `${formatDate(item.validade) || '-'}`;
+                    const buttonVender = document.createElement('button');
+                    buttonVender.classList.add('botao-vender');
+                    buttonVender.textContent = 'Vender';
+                    buttonVender.onclick = () => showModal(item);;
+
+                    div.appendChild(namePara);
+                    div.appendChild(codePara);
+                    div.appendChild(valuePara);
+                    div.appendChild(quantityPara);
+                    div.appendChild(datePara);
+                    div.appendChild(buttonVender);
+
+                    resultsContainer.appendChild(div);
+                });
+            }
+        });
+
+        document.getElementById('add-item-formProduto').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const itemName = document.getElementById('nome-produto').value;
+            const itemCode = document.getElementById('code-produto').value;
+            const itemValue = document.getElementById('valor-produto').value;
+
+            if (!itemName || !itemCode || !itemValue) {
+                alert('Por favor, preencha todos os campos obrigatórios.');
+                return;
+            }
+
+    
+
+                await window.api.addItemPcriado(itemName, itemCode, itemValue);
+
+                loadInventoryPCriado();
+                document.getElementById('add-item-formProduto').reset(); // Limpa o formulário após adicionar o item
+                
+        
+        });
+
+       
+       
+        document.addEventListener('DOMContentLoaded', () => {
+            const dateInput = document.getElementById('date-input');
+            const submitButton = document.getElementById('submit-date');
+            const displayDate = document.getElementById('display-date');
+
+            submitButton.addEventListener('click', () => {
+                const selectedDate = dateInput.value;
+                if (selectedDate) {
+                    displayDate.textContent = `Data selecionada: ${selectedDate}`;
+                } else {
+                    displayDate.textContent = 'Por favor, selecione uma data.';
+                }
+            });
+        });
+
+        document.getElementById('fetch-by-all-date').addEventListener('click', async () => {
+            const date = document.getElementById('date-input').value;
+          //  alert(date + 'a')
+            if (date) {
+                const dataCerta = formatDate(date)
+              //  alert(dataCerta + 'a')
+                try {
+                    const sales = await window.api.buscarTodasVendas('buscarTodasVendas', dataCerta);
+                    await displaySales(sales, dataCerta);
+                    //  alert('JSON.stringify(response,null,2)')
+
+                } catch (err) {
+                    console.error('Erro ao buscar vendas por data:', err);
+                }
+            }
+        });
+
+
+        async function displaySales(sales, date) {
+
+            if (!sales) {
+                return alert('não tem')
+            }
+            let totalVendidoDia = 0
+            const salesList = document.getElementById('sales-list');
+            const titleVendidos = document.createElement('div')
+            titleVendidos.classList.add('tituto-area-item-vendido')
+            const titleprecoItensVendidos = document.createElement('p')
+            titleprecoItensVendidos.innerHTML = `Preço`
+            const titlenomeItensVendidos = document.createElement('p')
+            titlenomeItensVendidos.innerHTML = `Produto`
+            const titlecodeItensVendidos = document.createElement('p')
+            titlecodeItensVendidos.innerHTML = `Código`
+
+            const titlequantidadeItensVendidos = document.createElement('p')
+            titlequantidadeItensVendidos.innerHTML = `Quantidade`
+
+
+
+            titleVendidos.appendChild(titlenomeItensVendidos)
+            titleVendidos.appendChild(titleprecoItensVendidos)
+            titleVendidos.appendChild(titlecodeItensVendidos)
+            titleVendidos.appendChild(titlequantidadeItensVendidos)
+
+
+
+            salesList.innerHTML = '';
+
+            if (sales.length === 0) {
+                salesList.innerHTML = `<li>Nenhuma venda encontrada ${date}.</li>`;
+            } else {
+                const filteredSales = sales.filter(item => item.date === date);
+
+
+
+             //   alert(JSON.stringify(filteredSales, null, 2))
+
+                salesList.appendChild(titleVendidos)
+                filteredSales.forEach(item => {
+
+
+                    const itensVendidos = document.createElement('div')
+                    itensVendidos.classList.add('area-item-vendido')
+
+                    const precoItensVendidos = document.createElement('p')
+                    const nomeItensVendidos = document.createElement('p')
+                    const codeItensVendidos = document.createElement('p')
+                    const quantidadeItensVendidos = document.createElement('p')
+                    totalVendidoDia += item.preco;
+                    nomeItensVendidos.innerText = item.item_name
+                    precoItensVendidos.innerText = item.preco.toFixed(2)
+                    codeItensVendidos.innerText = item.code
+                    quantidadeItensVendidos.innerText = item.quantidade
+
+
+
+                    itensVendidos.appendChild(nomeItensVendidos)
+                    itensVendidos.appendChild(precoItensVendidos)
+                    itensVendidos.appendChild(codeItensVendidos)
+                    itensVendidos.appendChild(quantidadeItensVendidos)
+
+                    salesList.appendChild(itensVendidos)
+                })
+                const totalVendido = document.createElement("p");
+                totalVendido.innerHTML = `Total Vendido R$ ${totalVendidoDia.toFixed(2)}`;
+                salesList.appendChild(totalVendido);
+
+
+
+            }
+        }
+
+
+
+
+
+        async function loadInventoryPCriado() {
+
+            const items = await window.api.getItemsPcriado();
+            const inventoryListPcriado = document.getElementById('inventory-listPCriado');
+            inventoryListPcriado.innerHTML = '';
+            items.forEach(item => {
+
+                const li = document.createElement('li');
+                li.classList.add('item-lista');
+
+                const itemName = document.createElement('span');
+                itemName.textContent = `${item.item_name}`;
+                itemName.classList.add('item-name');
+
+                const itemValue = document.createElement('span');
+                itemValue.textContent = `${item.item_value}`;
+                itemValue.classList.add('item-value');
+
+                const itemCode = document.createElement('span');
+                itemCode.textContent = `${item.code}`;
+                itemCode.classList.add('item-code');
+
+
+
+
+                const controls = document.createElement('div');
+                controls.classList.add('item-control');
+
+
+                const btnAdicionarQnt = document.createElement('button');
+                btnAdicionarQnt.textContent = '+';
+                btnAdicionarQnt.classList.add('btn', 'btn-add');
+
+
+                const btnReduzirQnt = document.createElement('button');
+                btnReduzirQnt.textContent = '-';
+                btnReduzirQnt.classList.add('btn', 'btn-reduce');
+
+                const btnRemove = document.createElement('button');
+                btnRemove.textContent = 'Remover';
+                btnRemove.classList.add('btn', 'btn-remove');
+
+                btnRemove.addEventListener('click', async () => {
+                    await removeItemPcriado(item.code);
+
+                    const searchTerm = document.getElementById('search-input').value;
+                    const selectedOption = document.getElementById('options').value;
+                    if (searchTerm && selectedOption) {
+                        await searchItemsAndUpdateResults(searchTerm, selectedOption);
+                    }
+                    loadInventoryPCriado(); // Recarrega a lista após remover o item
+                });
+
+                controls.appendChild(btnRemove);
+
+                li.appendChild(itemName);
+                li.appendChild(itemCode);
+
+                li.appendChild(itemValue);
+                li.appendChild(controls);
+
+                inventoryListPcriado.appendChild(li);
+            });
+
+        }
+
+
+        async function showModal3() {
+            const modal = document.getElementById('modal3');
+            const closeButton = document.getElementsByClassName('close3')[0];
+            const confirmButton = document.getElementById('confirm-button3');
+            const cancelButton = document.getElementById('cancel-button3');
+            const dateInput = document.getElementById('date-input3');
+
+            modal.style.display = "block";
+
+            closeButton.onclick = function () {
+                modal.style.display = 'none';
+            }
+
+            cancelButton.onclick = function () {
+                modal.style.display = "none";
+            }
+
+            window.onclick = function (event) {
+                if (event.target == modal) {
+                    modal.style.display = "none";
+                }
+            }
+
+            confirmButton.onclick = async function () {
+                const selectedDate = dateInput.value;
+                //  alert(selectedDate)
+                if (selectedDate) {
+                    const items = await getItemsVendasByDate(selectedDate);
+                    //   alert(`Data selecionada: ${selectedDate}\nItens: ${JSON.stringify(items)}`);
+
+
+
+
+                    //alert('Realizou a função!')
+
+                    modal.style.display = "none";
+                } else {
+                    alert('Por favor, selecione uma data.');
+                }
+            }
+
+
+        }
+
+
+    
+        function validateAndFormatInput() {
+            // Obtém o valor do input
+            let inputValue = document.getElementById('item-value').value;
+
+            // Remove quaisquer caracteres não numéricos (exceto ponto e vírgula)
+            inputValue = inputValue.replace(/[^0-9,.]/g, '');
+
+            // Substitui vírgulas por pontos para normalizar o formato
+            inputValue = inputValue.replace(',', '.');
+
+            // Verifica se há mais de um ponto e remove o excedente
+            const parts = inputValue.split('.');
+            if (parts.length > 2) {
+                inputValue = parts[0] + '.' + parts.slice(1).join('');
+            }
+
+            // Limita a duas casas decimais
+            const regex = /^(\d+)(\.\d{0,2})?$/;
+            const match = inputValue.match(regex);
+            if (match) {
+                inputValue = match[0];
+            }
+
+            // Atualiza o valor do input com o valor filtrado
+            document.getElementById('item-value').value = inputValue;
+        }
+
+        // Adiciona um ouvinte de eventos para o evento 'input' no input
+        document.getElementById('item-value').addEventListener('input', validateAndFormatInput);
+
+
+        async function loadItensVendidosHoje() {
+            const inventoryListPcriado = document.getElementById('area-produtos-vendidos');
+            inventoryListPcriado.innerHTML = '';
+
+            const itensVendidos = await window.api.buscarTodasVendas('buscarTodasVendas', dateHoje);
+            let totalVendido = 0;
+            //alert(JSON.stringify(itensVendidos,null,3))
+            itensVendidos.forEach((item, index) => {
+
+
+                if(item.date === dateHoje){
+                    const li = document.createElement('li');
+                li.classList.add('item-lista-area-vendidas');
+
+                const itemName = document.createElement('span');
+                itemName.textContent = ` ${item.item_name}`;
+                itemName.classList.add('item-name');
+
+                const itemCode = document.createElement('span');
+                itemCode.textContent = ` ${item.code}`;
+                itemCode.classList.add('item-code');
+
+                const div = document.createElement('div');
+                div.classList.add('area-quantidade-vendidos');
+
+                const itemQuantity = document.createElement('span');
+                itemQuantity.textContent = `${item.quantidade}`;
+                itemQuantity.classList.add('item-quantity');
+
+                const buttonExcluir = document.createElement('button');
+                buttonExcluir.textContent = 'Excluir';
+                buttonExcluir.classList.add('botao-excluir-vendidos');
+
+                // Adiciona evento de clique ao botão excluir
+                buttonExcluir.addEventListener('click', async () => {
+                    try {
+                        // Exibe informações do item e do índice
+                        console.log(`Excluindo item no índice ${index}:`, item);
+                     //   alert(`Excluindo item no índice ${index}:\nNome: ${item.item_name}\nCódigo: ${item.code}\nQuantidade: ${item.quantidade}\nPreço: R$ ${item.preco.toFixed(2)}`);
+
+                        // Remove o item do array itensVendidos
+                        itensVendidos.splice(index, 1);
+                        // Recalcula o total vendido
+                        totalVendido -= item.preco;
+                        // Remove o item do inventário
+                        await window.api.removeVenda(dateHoje, item.code);
+                        await retornarItemVendido(item.code, item.quantidade)
+
+                        // Atualiza a exibição da lista
+                        loadInventory()
+                        loadItensVendidosHoje();
+                    } catch (error) {
+                        console.error("Erro ao remover item vendido:", error);
+                    }
+                });
+                const itemValue = document.createElement('span');
+                itemValue.textContent = `R$ ${(item.preco).toFixed(2)}`;
+                itemValue.classList.add('item-value');
+
+                li.appendChild(itemName);
+                li.appendChild(itemCode);
+           
+                li.appendChild(itemQuantity);
+                li.appendChild(itemValue);
+                li.appendChild(buttonExcluir);
+
+                inventoryListPcriado.appendChild(li);
+
+                // Atualiza o total vendido
+                totalVendido += item.preco;
+                }               
+                
+            });
+
+            // Atualizar o total vendido
+            document.getElementById('total-vendido-value').textContent = totalVendido.toFixed(2);
+        }
+
+
+        async function loadInventory() {
+            const items = await window.api.getItems();
+            const inventoryList = document.getElementById('inventory-list');
+            inventoryList.innerHTML = '';
+            items.forEach(item => {
+                const li = document.createElement('li');
+                li.classList.add('item-lista');
+
+                const itemName = document.createElement('span');
+                itemName.textContent = `${item.item_name}`;
+                itemName.classList.add('item-name');
+
+                const itemValue = document.createElement('span');
+                itemValue.textContent = `${item.item_value}`;
+                itemValue.classList.add('item-value');
+
+                const itemCode = document.createElement('span');
+                itemCode.textContent = `${item.code}`;
+                itemCode.classList.add('item-code');
+
+
+                const itemDate = document.createElement('span');
+                itemDate.textContent = `${formatDate(item.validade)}`;
+                itemDate.classList.add('item-date');
+
+
+                const controls = document.createElement('div');
+                controls.classList.add('item-controls');
+
+                const areaQnt = document.createElement("div")
+                areaQnt.classList.add('area-quantidade-control')
+                controls.appendChild(areaQnt)
+
+                const btnAdicionarQnt = document.createElement('button');
+                btnAdicionarQnt.textContent = '+';
+                btnAdicionarQnt.classList.add('btn', 'btn-add');
+
+                const spanQuantity = document.createElement('span');
+                spanQuantity.textContent = item.quantity;
+                spanQuantity.classList.add('quantity');
+
+                const btnReduzirQnt = document.createElement('button');
+                btnReduzirQnt.textContent = '-';
+                btnReduzirQnt.classList.add('btn', 'btn-reduce');
+
+                const btnRemove = document.createElement('button');
+                btnRemove.textContent = 'Remover';
+                btnRemove.classList.add('btn', 'btn-remove');
+
+                btnReduzirQnt.addEventListener('click', async () => {
+                    await menosUmItem(item.code)
+                    const searchTerm = document.getElementById('search-input').value;
+                    const selectedOption = document.getElementById('options').value;
+                    if (searchTerm && selectedOption) {
+                        await searchItemsAndUpdateResults(searchTerm, selectedOption);
+                    }
+                    loadInventory()
+                })
+
+                btnAdicionarQnt.addEventListener('click', async () => {
+                    await maisUmItem(item.code)
+
+                    const searchTerm = document.getElementById('search-input').value;
+                    const selectedOption = document.getElementById('options').value;
+                    if (searchTerm && selectedOption) {
+                        await searchItemsAndUpdateResults(searchTerm, selectedOption);
+                    }
+
+                    loadInventory()
+                })
+
+
+
+                btnRemove.addEventListener('click', async () => {
+                    await removeItem(item.code);
+                    const searchTerm = document.getElementById('search-input').value;
+                    const selectedOption = document.getElementById('options').value;
+                    if (searchTerm && selectedOption) {
+                        await searchItemsAndUpdateResults(searchTerm, selectedOption);
+                    }
+                    loadInventory(); // Recarrega a lista após remover o item
+                });
+
+                areaQnt.appendChild(btnReduzirQnt);
+                areaQnt.appendChild(spanQuantity);
+                areaQnt.appendChild(btnAdicionarQnt);
+                controls.appendChild(btnRemove);
+
+                li.appendChild(itemName);
+                li.appendChild(itemCode);
+
+                li.appendChild(itemValue);
+                li.appendChild(controls);
+                li.appendChild(itemDate);
+                inventoryList.appendChild(li);
+            });
+
+        }
+        async function searchItemsAndUpdateResults(searchTerm, selectedOption) {
+            const results = await window.api.searchItems(searchTerm, selectedOption);
+            const resultsContainer = document.getElementById('search-results');
+            resultsContainer.innerHTML = ''; // Limpar resultados anteriores
+
+            if (results.length === 0) {
+                resultsContainer.innerHTML = '<p>Nenhum resultado encontrado.</p>';
+            } else {
+                results.forEach(item => {
+                    const div = document.createElement('div');
+                    div.classList.add('result');
+
+                    const namePara = document.createElement('p');
+                    namePara.textContent = `${item.item_name}`;
+
+                    const codePara = document.createElement('p');
+                    codePara.textContent = ` ${item.code}`;
+
+                    const valuePara = document.createElement('p');
+                    valuePara.textContent = ` ${item.item_value}`;
+
+                    const quantityPara = document.createElement('p');
+                    quantityPara.textContent = `${item.quantity || '-'}`;
+
+                    const datePara = document.createElement('p');
+                    datePara.textContent = `${formatDate(item.validade) || '-'}`;
+                    const buttonVender = document.createElement('button');
+                    buttonVender.classList.add('botao-vender');
+                    buttonVender.textContent = 'Vender';
+                    buttonVender.onclick = () => showModal(item);;
+
+                    div.appendChild(namePara);
+                    div.appendChild(codePara);
+                    div.appendChild(valuePara);
+                    div.appendChild(quantityPara);
+                    div.appendChild(datePara);
+                    div.appendChild(buttonVender);
+
+                    resultsContainer.appendChild(div);
+                });
+            }
+        }
+
+
+        async function removeItem(code) {
+            await window.api.removeItem(code);
+        }
+
+        async function removeItemPcriado(code) {
+            await window.api.removeItemPcriado(code);
+        }
+        async function menosUmItem(code) {
+            await window.api.menosUmItem(code)
+        }
+        async function maisUmItem(code) {
+            await window.api.maisUmItem(code)
+        }
+
+        async function removerItemVendido(code, vendido) {
+            await window.api.removerItemVendido(code, vendido)
+        }
+
+
+        async function retornarItemVendido(code, vendido) {
+            await window.api.retornarItemVendido(code, vendido)
+        }
+
+
+        async function getItemsVendasByDate(date) {
+            await window.api.getItemsVendasByDate(date)
+        }
+
+        async function addItemVendas(date, vendidos) {
+            await window.api.addItemVendas(date, vendidos)
+        }
+
+
+        function formatDate(dateString) {
+            if (!dateString) {
+                return '-';
+            } else {
+                // Cria um objeto Date a partir da string fornecida
+                const date = new Date(dateString);
+
+                // Calcula o UTC timestamp
+                const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
+
+                // Define o offset para o fuso horário de Brasília (GMT-3)
+                const offset = -3;
+
+                // Cria um novo objeto Date ajustado para o fuso horário de Brasília
+                const brasiliaTime = new Date(utc + (3600000 * offset));
+
+                // Extrai o dia, mês e ano do objeto Date ajustado
+                const day = brasiliaTime.getUTCDate().toString().padStart(2, '0');
+                const month = (brasiliaTime.getUTCMonth() + 1).toString().padStart(2, '0');
+                const year = brasiliaTime.getUTCFullYear();
+
+                // Retorna a data formatada no formato dd/mm/yyyy
+                return `${day}/${month}/${year}`;
+            }
+        }
+
+
+
+        function showCurrentDate() {
+            const today = new Date();
+            const formattedDate = formatDate(today);
+            const textoData = document.createElement('div')
+            textoData.textContent = `Caixa do dia: ${dateHoje}`;
+            textoData.classList.add('textoData')
+            document.getElementById('current-date').appendChild(textoData);
+        }
+        function showModal(item) {
+            let quantity = 0;
+            const modal = document.getElementById('modal');
+            const span = document.getElementsByClassName('close')[0];
+            const modalItemDetails = document.getElementById('modal-item-details');
+            const modalQuantityControls = document.getElementById('modal-quantity-controls');
+            const modalButtons = document.getElementById('modal-buttons');
+            modalButtons.classList.add('modal-buttons');
+
+            // Clear previous content
+            modalItemDetails.textContent = '';
+            modalQuantityControls.innerHTML = '';
+            modalButtons.innerHTML = '';
+
+            // Item details
+            const itemDetails = document.createElement('p');
+            itemDetails.textContent = `Quantas unidades de ${item.item_name}?`;
+            modalItemDetails.appendChild(itemDetails);
+
+            // Quantity controls
+            const btnAdicionarQnt = document.createElement('button');
+            btnAdicionarQnt.textContent = '+';
+            btnAdicionarQnt.classList.add('btn', 'btn-add');
+
+            const spanQuantity = document.createElement('span');
+            spanQuantity.textContent = quantity;
+            spanQuantity.classList.add('quantity');
+
+            const btnReduzirQnt = document.createElement('button');
+            btnReduzirQnt.textContent = '-';
+            btnReduzirQnt.classList.add('btn', 'btn-reduce');
+
+            modalQuantityControls.appendChild(btnReduzirQnt);
+            modalQuantityControls.appendChild(spanQuantity);
+            modalQuantityControls.appendChild(btnAdicionarQnt);
+
+            // Buttons
+            const confirmButton = document.createElement('button');
+            confirmButton.id = 'confirm-button';
+            confirmButton.textContent = 'Confirmar';
+            modalButtons.appendChild(confirmButton);
+
+            const cancelButton = document.createElement('button');
+            cancelButton.id = 'cancel-button';
+            cancelButton.textContent = 'Cancelar';
+            modalButtons.appendChild(cancelButton);
+
+            modal.style.display = "block";
+
+            span.onclick = function () {
+                modal.style.display = 'none';
+            }
+
+            cancelButton.onclick = function (item) {
+                modal.style.display = "none";
+            }
+
+            window.onclick = function (event) {
+                if (event.target == modal) {
+                    modal.style.display = "none";
+                }
+            }
+            confirmButton.onclick = async function () {
+                try {
+                    if (quantity > item.quantity) {
+                        alert("Quantidade maior que a em estoque");
+                        return;
+                    } else {
+                        if (quantity > 0) {
+
+                        
+                            //alert(date)
+                            let itemValue = item.item_value.toString().replace(',', '.');
+                            itemValue = parseFloat(itemValue);
+
+                          //  produtosVendidos.push([item.item_name, item.code, quantity, itemValue * quantity]);
+
+                            totalVendido += quantity * itemValue;
+
+
+
+
+
+                            modal.style.display = "none";
+                            try {
+
+                                await window.api.addVendas(dateHoje, item.item_name, item.code, quantity, itemValue * quantity)
+
+                            } catch (error) {
+                                alert(error)
+                            }
+
+
+
+                           // const dadosProntos = produtosVendidos
+
+
+                         //    alert(dadosProntos.toString())
+
+
+
+
+                            // await addItemVendas(dataAgora,JSON.stringify(dadosProntos))
+                            // Chama a função para carregar os itens vendidos hoje
+                            await removerItemVendido(item.code, quantity);
+                            //  alert(`${dataAgora},${dadosProntos}`)
+
+                            loadInventory();
+                            loadItensVendidosHoje();
+                            loadInventoryPCriado();
+
+                            const searchTerm = document.getElementById('search-input').value;
+                            const selectedOption = document.getElementById('options').value;
+
+                            if (searchTerm && selectedOption) {
+                                await searchItemsAndUpdateResults(searchTerm, selectedOption);
+                            }
+
+                        } else {
+                            alert("Quantidade deve ser maior que 0");
+                        }
+                    }
+                } catch (error) {
+                    console.error("Erro durante a execução: ", error);
+                    alert("Ocorreu um erro ao adicionar a venda. Verifique o console para mais detalhes.");
+                }
+            }
+            // Adicionar eventos aos botões de quantidade
+            btnAdicionarQnt.onclick = function () {
+                quantity++;
+                spanQuantity.textContent = quantity;
+
+
+            }
+
+            btnReduzirQnt.onclick = function () {
+                if (quantity > 0) {
+                    quantity--;
+                    spanQuantity.textContent = quantity;
+                }
+            }
+        }
+
+
+
+
+        function calcularTotalVendas(item) {
+            const exemplo = document.getElementById('total-vendido')
+            const texto = document.createElement('p')
+            texto.innerHTML = item
+
+        }
+
+
+        loadItensVendidosHoje()
+        showCurrentDate();
+        loadInventoryPCriado()
+        loadInventory();
+    </script>
+</body>
+
+</html>
